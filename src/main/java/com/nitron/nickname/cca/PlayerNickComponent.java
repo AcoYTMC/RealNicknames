@@ -1,81 +1,78 @@
 package com.nitron.nickname.cca;
 
+import com.mojang.datafixers.util.Pair;
+import com.nitron.nickname.RealNickname;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.text.TextCodecs;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.dynamic.Codecs;
+import org.ladysnake.cca.api.v3.component.ComponentKey;
+import org.ladysnake.cca.api.v3.component.ComponentRegistry;
 import org.ladysnake.cca.api.v3.component.sync.AutoSyncedComponent;
 import org.ladysnake.cca.api.v3.component.tick.CommonTickingComponent;
 
-public class PlayerNickComponent implements AutoSyncedComponent, CommonTickingComponent {
-    private final PlayerEntity player;
+import java.util.Optional;
 
-    private boolean hasNickname = false;
-    private String nickname = "";
-    private boolean hasColor = false;
-    private String color = "";
+@SuppressWarnings("ALL")
+public class PlayerNickComponent implements AutoSyncedComponent, CommonTickingComponent {
+    public static final ComponentKey<PlayerNickComponent> KEY = ComponentRegistry.getOrCreate(Identifier.of(RealNickname.MOD_ID, "nickname"), PlayerNickComponent.class);
+    private final PlayerEntity player;
+    public Optional<Text> nick = Optional.empty();
 
     public PlayerNickComponent(PlayerEntity player) {
         this.player = player;
     }
-    private void sync(){NicknameComponents.NICKNAME.sync(this.player);}
-    public static PlayerNickComponent get(@NotNull PlayerEntity player) {return (PlayerNickComponent) NicknameComponents.NICKNAME.get(player);}
 
+    public void sync() {
+        KEY.sync(this.player);
+        if (FabricLoader.getInstance().isDevelopmentEnvironment()) RealNickname.LOGGER.info("Synced component");
+        if (this.player instanceof ServerPlayerEntity serverPlayer) {
+            updateTabList(serverPlayer);
+        }
+    }
 
-    @Override
     public void tick() {
-
+        //
     }
 
-    @Override
-    public void readFromNbt(NbtCompound nbtCompound, RegistryWrapper.WrapperLookup wrapperLookup) {
-        this.hasNickname = nbtCompound.getBoolean("hasNickname");
-        this.hasColor = nbtCompound.getBoolean("hasColor");
-        this.nickname = nbtCompound.getString("nickname");
-        this.color = nbtCompound.getString("color");
+    public void readFromNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
+        if (nbt.contains("nick")) {
+            this.nick = Codecs.optional(TextCodecs.CODEC).decode(NbtOps.INSTANCE, nbt.get("nick")).mapOrElse(Pair::getFirst, error -> {
+                RealNickname.LOGGER.error("Nickname error: {}", error);
+                return Optional.empty();
+            });
+        }
     }
 
-    @Override
-    public void writeToNbt(NbtCompound nbtCompound, RegistryWrapper.WrapperLookup wrapperLookup) {
-        nbtCompound.putBoolean("hasNickname", this.hasNickname);
-        nbtCompound.putBoolean("hasColor", this.hasColor);
-        nbtCompound.putString("nickname", this.nickname);
-        nbtCompound.putString("color", this.color);
+    public void writeToNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
+        if (this.nick.isPresent() && this.nick.get() != null) {
+            NbtElement element = Codecs.optional(TextCodecs.CODEC).encode(this.nick, NbtOps.INSTANCE, new NbtCompound()).result().orElse(null);
+            if (element != null) {
+                nbt.put("nick", element);
+            }
+        }
     }
 
-    public boolean isHasNickname() {
-        return hasNickname;
-    }
-
-    public void setHasNickname(boolean hasNickname) {
-        this.hasNickname = hasNickname;
-        this.sync();
-    }
-
-    public String getNickname() {
-        return nickname;
-    }
-
-    public void setNickname(String nickname) {
-        this.nickname = nickname;
-        this.sync();
-    }
-
-    public boolean isHasColor() {
-        return hasColor;
-    }
-
-    public void setHasColor(boolean hasColor) {
-        this.hasColor = hasColor;
-        this.sync();
-    }
-
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-        this.sync();
+    public static void updateTabList(ServerPlayerEntity player) {
+        ServerPlayNetworkHandler handler = player.networkHandler;
+        if (handler != null) {
+            MinecraftServer server = player.getServer();
+            if (server != null) {
+                ServerPlayerEntity playerEntity = server.getPlayerManager().getPlayer(player.getUuid());
+                if (playerEntity != null) {
+                    server.getPlayerManager().sendToAll(new PlayerListS2CPacket(PlayerListS2CPacket.Action.UPDATE_DISPLAY_NAME, playerEntity));
+                }
+            }
+        }
     }
 }

@@ -1,8 +1,6 @@
 {
   "nickname.midnightconfig.title": "Real Nicknames",
   "nickname.midnightconfig.category.main": "Real Nicknames",
-  "nickname.midnightconfig.showColor": "Allow Name Colors",
-  "nickname.midnightconfig.showColor.tooltip": "Allows for your name to have a hex color code.",
   "nickname.midnightconfig.maxNick": "Max Nickname Length",
   "nickname.midnightconfig.maxNick.tooltip": "Sets the max length allowed for a nickname"
 }

@@ -14,9 +14,6 @@
 		"main": [
 			"com.nitron.nickname.RealNickname"
 		],
-		"fabric-datagen": [
-			"com.nitron.nickname.RealNicknameDataGenerator"
-		],
 		"cardinal-components": [
 			"com.nitron.nickname.cca.NicknameComponents"
 		],
@@ -37,8 +34,5 @@
 		"minecraft": "~1.21.1",
 		"java": ">=21",
 		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
 	}
 }
